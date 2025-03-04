@@ -23,11 +23,14 @@ export var data = {};
 
 // Set up state as a serializable object
 export var state = {
-  title: "",
-  subtitle: "",
+  title: '',
+  subtitle: '',
   radius: 50,
   stroke: 2,
   color: '#ffffff',
+  notesTitle: '', 
+  notes: '',
+  includeLogo: false
 };
 
 // Create a separate reactive store for internal Svelte use

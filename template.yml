@@ -33,7 +33,7 @@ settings:
   # • "boolean" >> gives a checkbox
   # • "color" >> gives a color picker
 
-  - Text
+  - Header
   - property: title
     name: Title
     type: string
@@ -54,6 +54,17 @@ settings:
     name: Color
     description: The color of the circle
     type: color
+
+  - Footer
+  - property: notesTitle
+    name: Notes title
+    type: string
+  - property: notes
+    name: Notes and/or source
+    type: string
+  - property: includeLogo
+    name: Include logo
+    type: boolean
 
 data:
   # The data section determines how data is made available to your template,
