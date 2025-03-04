@@ -12,6 +12,7 @@ export default defineConfig({
       entry: resolve(__dirname, 'src/template.svelte.js'),
       formats: ['iife'],
       fileName: 'template.js',
+      cssFileName: 'style',
       name: 'template',
     },
     rollupOptions: {

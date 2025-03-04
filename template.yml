@@ -33,6 +33,14 @@ settings:
   # • "boolean" >> gives a checkbox
   # • "color" >> gives a color picker
 
+  - Text
+  - property: title
+    name: Title
+    type: string
+  - property: subtitle
+    name: Subtitle
+    type: string
+
   - Circle properties # Headings can be used to break up the settings into collapsible sections
   - property: radius
     name: Radius

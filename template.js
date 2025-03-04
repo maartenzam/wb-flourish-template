@@ -1,5 +1,19 @@
 var template = function(exports) {
-  "use strict";
+  "use strict";var __defProp = Object.defineProperty;
+var __typeError = (msg) => {
+  throw TypeError(msg);
+};
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+var __accessCheck = (obj, member, msg) => member.has(obj) || __typeError("Cannot " + msg);
+var __privateGet = (obj, member, getter) => (__accessCheck(obj, member, "read from private field"), getter ? getter.call(obj) : member.get(obj));
+var __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot add the same private member more than once") : member instanceof WeakSet ? member.add(obj) : member.set(obj, value);
+var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value) : member.set(obj, value), value);
+var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "access private method"), method);
+
+  var _listeners, _observer, _options, _ResizeObserverSingleton_instances, getObserver_fn;
+  const TEMPLATE_FRAGMENT = 1;
+  const TEMPLATE_USE_IMPORT_NODE = 1 << 1;
   const UNINITIALIZED = Symbol();
   const FILENAME = Symbol("filename");
   const DEV = true;
@@ -624,6 +638,29 @@ https://svelte.dev/e/state_proxy_equality_mismatch`, bold, normal);
       return /* @__PURE__ */ get_first_child(node);
     }
   }
+  function first_child(fragment, is_text) {
+    {
+      var first = (
+        /** @type {DocumentFragment} */
+        /* @__PURE__ */ get_first_child(
+          /** @type {Node} */
+          fragment
+        )
+      );
+      if (first instanceof Comment && first.data === "") return /* @__PURE__ */ get_next_sibling(first);
+      return first;
+    }
+  }
+  function sibling(node, count = 1, is_text = false) {
+    let next_sibling = node;
+    while (count--) {
+      next_sibling = /** @type {TemplateNode} */
+      /* @__PURE__ */ get_next_sibling(next_sibling);
+    }
+    {
+      return next_sibling;
+    }
+  }
   const handled_errors = /* @__PURE__ */ new WeakSet();
   let is_throwing_error = false;
   let is_flushing = false;
@@ -1152,6 +1189,15 @@ ${indent}in ${name}`).join("")}
     }
     return signal.v;
   }
+  function untrack(fn) {
+    var previous_untracking = untracking;
+    try {
+      untracking = true;
+      return fn();
+    } finally {
+      untracking = previous_untracking;
+    }
+  }
   const STATUS_MASK = -7169;
   function set_signal_status(signal, status) {
     signal.f = signal.f & STATUS_MASK | status;
@@ -1367,10 +1413,38 @@ ${indent}in ${name}`).join("")}
     }
     var child2 = effect2.first;
     while (child2 !== null) {
-      var sibling = child2.next;
+      var sibling2 = child2.next;
       var transparent = (child2.f & EFFECT_TRANSPARENT) !== 0 || (child2.f & BRANCH_EFFECT) !== 0;
       pause_children(child2, transitions, transparent ? local : false);
-      child2 = sibling;
+      child2 = sibling2;
+    }
+  }
+  function resume_effect(effect2) {
+    resume_children(effect2, true);
+  }
+  function resume_children(effect2, local) {
+    if ((effect2.f & INERT) === 0) return;
+    effect2.f ^= INERT;
+    if ((effect2.f & CLEAN) === 0) {
+      effect2.f ^= CLEAN;
+    }
+    if (check_dirtiness(effect2)) {
+      set_signal_status(effect2, DIRTY);
+      schedule_effect(effect2);
+    }
+    var child2 = effect2.first;
+    while (child2 !== null) {
+      var sibling2 = child2.next;
+      var transparent = (child2.f & EFFECT_TRANSPARENT) !== 0 || (child2.f & BRANCH_EFFECT) !== 0;
+      resume_children(child2, transparent ? local : false);
+      child2 = sibling2;
+    }
+    if (effect2.transitions !== null) {
+      for (const transition of effect2.transitions) {
+        if (transition.is_global || local) {
+          transition.in();
+        }
+      }
     }
   }
   const boundaries = {};
@@ -1707,30 +1781,32 @@ ${indent}in ${name}`).join("")}
     }
   }
   // @__NO_SIDE_EFFECTS__
-  function ns_template(content, flags, ns = "svg") {
-    var has_start = !content.startsWith("<!>");
-    var wrapped = `<${ns}>${has_start ? content : "<!>" + content}</${ns}>`;
+  function template2(content, flags) {
+    var is_fragment = (flags & TEMPLATE_FRAGMENT) !== 0;
+    var use_import_node = (flags & TEMPLATE_USE_IMPORT_NODE) !== 0;
     var node;
+    var has_start = !content.startsWith("<!>");
     return () => {
-      if (!node) {
-        var fragment = (
-          /** @type {DocumentFragment} */
-          create_fragment_from_html(wrapped)
-        );
-        var root2 = (
-          /** @type {Element} */
-          /* @__PURE__ */ get_first_child(fragment)
-        );
-        {
-          node = /** @type {Element} */
-          /* @__PURE__ */ get_first_child(root2);
-        }
+      if (node === void 0) {
+        node = create_fragment_from_html(has_start ? content : "<!>" + content);
+        if (!is_fragment) node = /** @type {Node} */
+        /* @__PURE__ */ get_first_child(node);
       }
       var clone = (
         /** @type {TemplateNode} */
-        node.cloneNode(true)
+        use_import_node || is_firefox ? document.importNode(node, true) : node.cloneNode(true)
       );
-      {
+      if (is_fragment) {
+        var start = (
+          /** @type {TemplateNode} */
+          /* @__PURE__ */ get_first_child(clone)
+        );
+        var end = (
+          /** @type {TemplateNode} */
+          clone.lastChild
+        );
+        assign_nodes(start, end);
+      } else {
         assign_nodes(clone, clone);
       }
       return clone;
@@ -1744,6 +1820,13 @@ ${indent}in ${name}`).join("")}
       /** @type {Node} */
       dom
     );
+  }
+  function set_text(text, value) {
+    var str = value == null ? "" : typeof value === "object" ? value + "" : value;
+    if (str !== (text.__t ?? (text.__t = text.nodeValue))) {
+      text.__t = str;
+      text.nodeValue = str + "";
+    }
   }
   function mount(component, options) {
     return _mount(component, options);
@@ -1833,6 +1916,51 @@ ${indent}in ${name}`).join("")}
       $set: () => error("$set(...)")
     };
   }
+  function if_block(node, fn, [root_index, hydrate_index] = [0, 0]) {
+    var anchor = node;
+    var consequent_effect = null;
+    var alternate_effect = null;
+    var condition = UNINITIALIZED;
+    var flags = root_index > 0 ? EFFECT_TRANSPARENT : 0;
+    var has_branch = false;
+    const set_branch = (fn2, flag = true) => {
+      has_branch = true;
+      update_branch(flag, fn2);
+    };
+    const update_branch = (new_condition, fn2) => {
+      if (condition === (condition = new_condition)) return;
+      if (condition) {
+        if (consequent_effect) {
+          resume_effect(consequent_effect);
+        } else if (fn2) {
+          consequent_effect = branch(() => fn2(anchor));
+        }
+        if (alternate_effect) {
+          pause_effect(alternate_effect, () => {
+            alternate_effect = null;
+          });
+        }
+      } else {
+        if (alternate_effect) {
+          resume_effect(alternate_effect);
+        } else if (fn2) {
+          alternate_effect = branch(() => fn2(anchor, [root_index + 1, hydrate_index]));
+        }
+        if (consequent_effect) {
+          pause_effect(consequent_effect, () => {
+            consequent_effect = null;
+          });
+        }
+      }
+    };
+    block(() => {
+      has_branch = false;
+      fn(set_branch);
+      if (!has_branch) {
+        update_branch(null, null);
+      }
+    }, flags);
+  }
   function set_attribute(element, attribute, value, skip_warning) {
     var attributes = element.__attributes ?? (element.__attributes = {});
     if (attributes[attribute] === (attributes[attribute] = value)) return;
@@ -1869,6 +1997,67 @@ ${indent}in ${name}`).join("")}
     }
     return setters;
   }
+  const _ResizeObserverSingleton = class _ResizeObserverSingleton {
+    /** @param {ResizeObserverOptions} options */
+    constructor(options) {
+      __privateAdd(this, _ResizeObserverSingleton_instances);
+      /** */
+      __privateAdd(this, _listeners, /* @__PURE__ */ new WeakMap());
+      /** @type {ResizeObserver | undefined} */
+      __privateAdd(this, _observer);
+      /** @type {ResizeObserverOptions} */
+      __privateAdd(this, _options);
+      __privateSet(this, _options, options);
+    }
+    /**
+     * @param {Element} element
+     * @param {(entry: ResizeObserverEntry) => any} listener
+     */
+    observe(element, listener) {
+      var listeners = __privateGet(this, _listeners).get(element) || /* @__PURE__ */ new Set();
+      listeners.add(listener);
+      __privateGet(this, _listeners).set(element, listeners);
+      __privateMethod(this, _ResizeObserverSingleton_instances, getObserver_fn).call(this).observe(element, __privateGet(this, _options));
+      return () => {
+        var listeners2 = __privateGet(this, _listeners).get(element);
+        listeners2.delete(listener);
+        if (listeners2.size === 0) {
+          __privateGet(this, _listeners).delete(element);
+          __privateGet(this, _observer).unobserve(element);
+        }
+      };
+    }
+  };
+  _listeners = new WeakMap();
+  _observer = new WeakMap();
+  _options = new WeakMap();
+  _ResizeObserverSingleton_instances = new WeakSet();
+  getObserver_fn = function() {
+    return __privateGet(this, _observer) ?? __privateSet(this, _observer, new ResizeObserver(
+      /** @param {any} entries */
+      (entries) => {
+        for (var entry of entries) {
+          _ResizeObserverSingleton.entries.set(entry.target, entry);
+          for (var listener of __privateGet(this, _listeners).get(entry.target) || []) {
+            listener(entry);
+          }
+        }
+      }
+    ));
+  };
+  /** @static */
+  __publicField(_ResizeObserverSingleton, "entries", /* @__PURE__ */ new WeakMap());
+  let ResizeObserverSingleton = _ResizeObserverSingleton;
+  var resize_observer_border_box = /* @__PURE__ */ new ResizeObserverSingleton({
+    box: "border-box"
+  });
+  function bind_element_size(element, type, set2) {
+    var unsub = resize_observer_border_box.observe(element, () => set2(element[type]));
+    effect(() => {
+      untrack(() => set2(element[type]));
+      return unsub;
+    });
+  }
   function bind_window_size(type, set2) {
     listen(window, ["resize"], () => without_reactive_context(() => set2(window[type])));
   }
@@ -1902,18 +2091,63 @@ ${indent}in ${name}`).join("")}
   if (typeof window !== "undefined")
     (window.__svelte || (window.__svelte = { v: /* @__PURE__ */ new Set() })).v.add(PUBLIC_VERSION);
   mark_module_start();
+  Header[FILENAME] = "src/template/Header.svelte";
+  var root$1 = add_locations(/* @__PURE__ */ template2(`<div class="header svelte-1cps9pi"><h2 class="title svelte-1cps9pi"> </h2> <h3 class="subtitle svelte-1cps9pi"> </h3></div>`), Header[FILENAME], [[5, 0, [[6, 2], [7, 2]]]]);
+  function Header($$anchor, $$props) {
+    check_target(new.target);
+    push($$props, true, Header);
+    var div = root$1();
+    var h2 = child(div);
+    var text = child(h2);
+    var h3 = sibling(h2, 2);
+    var text_1 = child(h3);
+    template_effect(() => {
+      set_text(text, $$props.title);
+      set_text(text_1, $$props.subtitle);
+    });
+    append($$anchor, div);
+    return pop({ ...legacy_api() });
+  }
+  mark_module_end(Header);
+  mark_module_start();
   Viz[FILENAME] = "src/Viz.svelte";
-  var root = add_locations(/* @__PURE__ */ ns_template(`<svg><circle stroke="black"></circle></svg>`), Viz[FILENAME], [[9, 0, [[10, 2]]]]);
+  var root = add_locations(/* @__PURE__ */ template2(`<div class="chart-container"><div class="header-container"><!></div></div> <div class="viz-container"><svg><circle stroke="black"></circle></svg></div>`, 1), Viz[FILENAME], [
+    [17, 0, [[18, 2]]],
+    [25, 0, [[26, 2, [[27, 4]]]]]
+  ]);
   function Viz($$anchor, $$props) {
     check_target(new.target);
     push($$props, true, Viz);
     let width = state$1(500);
     let height = state$1(500);
-    var svg = root();
+    let headerHeight = state$1(void 0);
+    let vizHeight = /* @__PURE__ */ derived(() => get(height) - get(headerHeight));
+    let vizWidth = state$1(void 0);
+    var fragment = root();
+    var div = first_child(fragment);
+    var div_1 = child(div);
+    var node = child(div_1);
+    {
+      var consequent = ($$anchor2) => {
+        Header($$anchor2, {
+          get title() {
+            return $$props.title;
+          },
+          get subtitle() {
+            return $$props.subtitle;
+          }
+        });
+      };
+      if_block(node, ($$render) => {
+        if ($$props.title || $$props.subtitle) $$render(consequent);
+      });
+    }
+    var div_2 = sibling(div, 2);
+    var svg = child(div_2);
     var circle = child(svg);
     template_effect(() => {
-      set_attribute(svg, "width", get(width));
-      set_attribute(svg, "height", get(height));
+      set_attribute(svg, "width", get(vizWidth));
+      set_attribute(svg, "height", get(vizHeight));
       set_attribute(circle, "cx", get(width) / 2);
       set_attribute(circle, "cy", get(height) / 2);
       set_attribute(circle, "r", $$props.radius);
@@ -1922,12 +2156,32 @@ ${indent}in ${name}`).join("")}
     });
     bind_window_size("innerWidth", ($$value) => set(width, proxy($$value, null, width)));
     bind_window_size("innerHeight", ($$value) => set(height, proxy($$value, null, height)));
-    append($$anchor, svg);
+    bind_element_size(div_1, "clientHeight", ($$value) => set(headerHeight, $$value));
+    bind_element_size(div_2, "clientWidth", ($$value) => set(vizWidth, $$value));
+    append($$anchor, fragment);
     return pop({ ...legacy_api() });
   }
   mark_module_end(Viz);
+  let font_link = document.createElement("link");
+  font_link.setAttribute("rel", "stylesheet");
+  document.body.appendChild(font_link);
+  font_link.setAttribute("href", window.Flourish.static_prefix + "/style.css");
+  let typograph_link = document.createElement("link");
+  typograph_link.setAttribute("rel", "stylesheet");
+  document.body.appendChild(typograph_link);
+  typograph_link.setAttribute("href", window.Flourish.static_prefix + "/typography.css");
+  let colors_link = document.createElement("link");
+  colors_link.setAttribute("rel", "stylesheet");
+  document.body.appendChild(colors_link);
+  colors_link.setAttribute("href", window.Flourish.static_prefix + "/colors.css");
   var data = {};
-  var state = { radius: 50, stroke: 2, color: "#ffffff" };
+  var state = {
+    title: "",
+    subtitle: "",
+    radius: 50,
+    stroke: 2,
+    color: "#ffffff"
+  };
   let reactiveState = state$1(proxy({}));
   function draw() {
     set(reactiveState, proxy({ ...state }, null, reactiveState));
