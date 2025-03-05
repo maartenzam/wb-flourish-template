@@ -2,7 +2,9 @@
   import Header from './template/Header.svelte';
   import Footer from './template/Footer.svelte';
 
-  let { radius, stroke, color, title, subtitle, notesTitle, notes, includeLogo } = $props();
+  let { data, radius, stroke, color, title, subtitle, notesTitle, notes, includeLogo } = $props();
+
+  $inspect(data.plotdata)
 
   let width = $state(500);
   let height = $state(500);

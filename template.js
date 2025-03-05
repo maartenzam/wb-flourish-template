@@ -77,6 +77,33 @@ https://svelte.dev/e/derived_references_self`);
       throw error;
     }
   }
+  function effect_in_teardown(rune) {
+    {
+      const error = new Error(`effect_in_teardown
+\`${rune}\` cannot be used inside an effect cleanup function
+https://svelte.dev/e/effect_in_teardown`);
+      error.name = "Svelte error";
+      throw error;
+    }
+  }
+  function effect_in_unowned_derived() {
+    {
+      const error = new Error(`effect_in_unowned_derived
+Effect cannot be created inside a \`$derived\` value that was not itself created inside an effect
+https://svelte.dev/e/effect_in_unowned_derived`);
+      error.name = "Svelte error";
+      throw error;
+    }
+  }
+  function effect_orphan(rune) {
+    {
+      const error = new Error(`effect_orphan
+\`${rune}\` can only be used inside an effect (e.g. during component initialisation)
+https://svelte.dev/e/effect_orphan`);
+      error.name = "Svelte error";
+      throw error;
+    }
+  }
   function effect_update_depth_exceeded() {
     {
       const error = new Error(`effect_update_depth_exceeded
@@ -132,6 +159,116 @@ https://svelte.dev/e/state_unsafe_mutation`);
     }
   }
   let tracing_mode_flag = false;
+  var bold$1 = "font-weight: bold";
+  var normal$1 = "font-weight: normal";
+  function state_snapshot_uncloneable(properties) {
+    {
+      console.warn(`%c[svelte] state_snapshot_uncloneable
+%c${properties ? `The following properties cannot be cloned with \`$state.snapshot\` — the return value contains the originals:
+
+${properties}` : "Value cannot be cloned with `$state.snapshot` — the original value was returned"}
+https://svelte.dev/e/state_snapshot_uncloneable`, bold$1, normal$1);
+    }
+  }
+  const empty = [];
+  function snapshot(value, skip_warning = false) {
+    if (!skip_warning) {
+      const paths = [];
+      const copy = clone(value, /* @__PURE__ */ new Map(), "", paths);
+      if (paths.length === 1 && paths[0] === "") {
+        state_snapshot_uncloneable();
+      } else if (paths.length > 0) {
+        const slice = paths.length > 10 ? paths.slice(0, 7) : paths.slice(0, 10);
+        const excess = paths.length - slice.length;
+        let uncloned = slice.map((path) => `- <value>${path}`).join("\n");
+        if (excess > 0) uncloned += `
+- ...and ${excess} more`;
+        state_snapshot_uncloneable(uncloned);
+      }
+      return copy;
+    }
+    return clone(value, /* @__PURE__ */ new Map(), "", empty);
+  }
+  function clone(value, cloned, path, paths, original = null) {
+    if (typeof value === "object" && value !== null) {
+      var unwrapped = cloned.get(value);
+      if (unwrapped !== void 0) return unwrapped;
+      if (value instanceof Map) return (
+        /** @type {Snapshot<T>} */
+        new Map(value)
+      );
+      if (value instanceof Set) return (
+        /** @type {Snapshot<T>} */
+        new Set(value)
+      );
+      if (is_array(value)) {
+        var copy = (
+          /** @type {Snapshot<any>} */
+          Array(value.length)
+        );
+        cloned.set(value, copy);
+        if (original !== null) {
+          cloned.set(original, copy);
+        }
+        for (var i = 0; i < value.length; i += 1) {
+          var element = value[i];
+          if (i in value) {
+            copy[i] = clone(element, cloned, `${path}[${i}]`, paths);
+          }
+        }
+        return copy;
+      }
+      if (get_prototype_of(value) === object_prototype) {
+        copy = {};
+        cloned.set(value, copy);
+        if (original !== null) {
+          cloned.set(original, copy);
+        }
+        for (var key in value) {
+          copy[key] = clone(value[key], cloned, `${path}.${key}`, paths);
+        }
+        return copy;
+      }
+      if (value instanceof Date) {
+        return (
+          /** @type {Snapshot<T>} */
+          structuredClone(value)
+        );
+      }
+      if (typeof /** @type {T & { toJSON?: any } } */
+      value.toJSON === "function") {
+        return clone(
+          /** @type {T & { toJSON(): any } } */
+          value.toJSON(),
+          cloned,
+          `${path}.toJSON()`,
+          paths,
+          // Associate the instance with the toJSON clone
+          value
+        );
+      }
+    }
+    if (value instanceof EventTarget) {
+      return (
+        /** @type {Snapshot<T>} */
+        value
+      );
+    }
+    try {
+      return (
+        /** @type {Snapshot<T>} */
+        structuredClone(value)
+      );
+    } catch (e) {
+      {
+        paths.push(path);
+      }
+      return (
+        /** @type {Snapshot<T>} */
+        value
+      );
+    }
+  }
   let inspect_effects = /* @__PURE__ */ new Set();
   function set_inspect_effects(v) {
     inspect_effects = v;
@@ -652,6 +789,10 @@ https://svelte.dev/e/state_proxy_equality_mismatch`, bold, normal);
   let is_flushing = false;
   let last_scheduled_effect = null;
   let is_updating_effect = false;
+  let is_destroying_effect = false;
+  function set_is_destroying_effect(value) {
+    is_destroying_effect = value;
+  }
   let queued_root_effects = [];
   let dev_effect_stack = [];
   let active_reaction = null;
@@ -1188,6 +1329,17 @@ ${indent}in ${name}`).join("")}
   function set_signal_status(signal, status) {
     signal.f = signal.f & STATUS_MASK | status;
   }
+  function validate_effect(rune) {
+    if (active_effect === null && active_reaction === null) {
+      effect_orphan(rune);
+    }
+    if (active_reaction !== null && (active_reaction.f & UNOWNED) !== 0 && active_effect === null) {
+      effect_in_unowned_derived();
+    }
+    if (is_destroying_effect) {
+      effect_in_teardown(rune);
+    }
+  }
   function push_effect(effect2, parent_effect) {
     var parent_last = parent_effect.last;
     if (parent_last === null) {
@@ -1257,6 +1409,9 @@ ${indent}in ${name}`).join("")}
     effect2.teardown = fn;
     return effect2;
   }
+  function inspect_effect(fn) {
+    return create_effect(INSPECT_EFFECT, fn, true);
+  }
   function component_root(fn) {
     const effect2 = create_effect(ROOT_EFFECT, fn, true);
     return (options = {}) => {
@@ -1295,11 +1450,14 @@ ${indent}in ${name}`).join("")}
   function execute_effect_teardown(effect2) {
     var teardown2 = effect2.teardown;
     if (teardown2 !== null) {
+      const previously_destroying_effect = is_destroying_effect;
       const previous_reaction = active_reaction;
+      set_is_destroying_effect(true);
       set_active_reaction(null);
       try {
         teardown2.call(null);
       } finally {
+        set_is_destroying_effect(previously_destroying_effect);
         set_active_reaction(previous_reaction);
       }
     }
@@ -1777,14 +1935,14 @@ ${indent}in ${name}`).join("")}
         node = /** @type {Node} */
         /* @__PURE__ */ get_first_child(node);
       }
-      var clone = (
+      var clone2 = (
         /** @type {TemplateNode} */
         use_import_node || is_firefox ? document.importNode(node, true) : node.cloneNode(true)
       );
       {
-        assign_nodes(clone, clone);
+        assign_nodes(clone2, clone2);
       }
-      return clone;
+      return clone2;
     };
   }
   function append(anchor, dom) {
@@ -1890,6 +2048,22 @@ ${indent}in ${name}`).join("")}
       $on: () => error("$on(...)"),
       $set: () => error("$set(...)")
     };
+  }
+  function inspect(get_value, inspector = console.log) {
+    validate_effect("$inspect");
+    let initial = true;
+    inspect_effect(() => {
+      var value = UNINITIALIZED;
+      try {
+        value = get_value();
+      } catch (error) {
+        console.error(error);
+      }
+      if (value !== UNINITIALIZED) {
+        inspector(initial ? "init" : "update", ...snapshot(value, true));
+      }
+      initial = false;
+    });
   }
   function if_block(node, fn, [root_index, hydrate_index] = [0, 0]) {
     var anchor = node;
@@ -2123,18 +2297,19 @@ ${indent}in ${name}`).join("")}
   Viz[FILENAME] = "src/Viz.svelte";
   var root = add_locations(/* @__PURE__ */ template2(`<div class="chart-container svelte-1xm5ugn"><div class="header-container"><!></div> <div class="viz-container svelte-1xm5ugn"><svg><circle stroke="black"></circle></svg></div> <div class="footer-container"><!></div></div>`), Viz[FILENAME], [
     [
-      20,
+      22,
       0,
       [
-        [21, 2],
-        [27, 2, [[28, 4, [[29, 6]]]]],
-        [40, 2]
+        [23, 2],
+        [29, 2, [[30, 4, [[31, 6]]]]],
+        [42, 2]
       ]
     ]
   ]);
   function Viz($$anchor, $$props) {
     check_target(new.target);
     push($$props, true, Viz);
+    inspect(() => [$$props.data.plotdata]);
     let width = state$1(500);
     let height = state$1(500);
     let headerHeight = state$1(void 0);

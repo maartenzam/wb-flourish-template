@@ -69,3 +69,35 @@ settings:
 data:
   # The data section determines how data is made available to your template,
   # and the sample data that is used. See the documentation.
+  # The data section determines how data is made available to your template,
+  # and the sample data that is used. See the documentation.
+  - key: iso3c # Property name in the dataset
+    name: Country Code # Name to be displayed in the editor
+    description: The ISO3C 3 letter country code of each country, as used by the World Bank
+    dataset: plotdata # Name of dataset
+    type: column # Are we selecting a single or multiple columns
+    column: "country_data::A" # Which column should be selected
+    data_type: string
+  - key: label
+    name: Country name
+    description: The country names, for tooltips for example
+    dataset: plotdata
+    type: column
+    column: "country_data::B"
+    data_type: string
+  - key: numericValue
+    name: Numeric value
+    description: A numeric values column
+    dataset: plotdata
+    type: column
+    column: "country_data::G"
+    data_type:
+      - number
+  - key: categoricalValue
+    name: Categorical value
+    description: A categorical values column
+    dataset: plotdata
+    type: column
+    column: "country_data::C"
+    data_type:
+      - string
