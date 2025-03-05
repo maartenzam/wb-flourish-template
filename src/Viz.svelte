@@ -13,7 +13,7 @@
   let headerHeight = $state();
   let footerHeight = $state();
 
-  let vizHeight = $derived(height - headerHeight - footerHeight);
+  let vizHeight = $derived(headerHeight && footerHeight ? height - headerHeight - footerHeight : height);
   let vizWidth = $state();
 </script>
 

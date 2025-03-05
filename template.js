@@ -2314,7 +2314,7 @@ ${indent}in ${name}`).join("")}
     let height = state$1(500);
     let headerHeight = state$1(void 0);
     let footerHeight = state$1(void 0);
-    let vizHeight = /* @__PURE__ */ derived(() => get(height) - get(headerHeight) - get(footerHeight));
+    let vizHeight = /* @__PURE__ */ derived(() => get(headerHeight) && get(footerHeight) ? get(height) - get(headerHeight) - get(footerHeight) : get(height));
     let vizWidth = state$1(void 0);
     var div = root();
     var div_1 = child(div);
